@@ -75,17 +75,6 @@ sudo ./permissions.sh
 
 ---
 
-### `safe-reboot.sh`
-
-Gracefully stops all running Docker containers (waiting up to 60s for them to stop), lazily unmounts the network mounts (`/mnt/media`, `/mnt/sync`), syncs disk buffers, then reboots the system via `systemctl`.
-
-**Usage:**
-```bash
-sudo ./safe-reboot.sh
-```
-
----
-
 ### `recreate-docker.sh`
 
 Recreates Docker Compose services in bulk — discovers every service under a directory of per-service Compose projects and takes each one `down` then `up -d`.

@@ -12,3 +12,7 @@ pyenv/
 __pycache__/
 tools/.find-domain.cache
 plex/plexmeta.log
+.claude/
+docs/
+CLAUDE.md
+.claudeignore
