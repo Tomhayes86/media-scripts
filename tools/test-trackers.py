@@ -3,11 +3,9 @@
 This script tests and filters a list of trackers to find out which ones return
 valid responses and saves the valid ones to a file.
 
-Author: Simon [redacted]
-Date: 16 April 2024
-Updated: 4 January 2026 - Added multiple tracker sources, progress bar, concurrent testing
-
 Requirements: Python 3.8+, pip install requests rich
+
+Updated: 4 January 2026 - Added multiple tracker sources, progress bar, concurrent testing
 """
 
 import requests

@@ -1,12 +1,10 @@
 # Tools
 
-Utility scripts for file management and testing.
+Utility scripts for file management and testing. Most should be run manually as needed.
 
-See [main README](../README.md) for general setup and configuration, and dependency installation.
+See [main README](../README.md) for repo setup and configuration, and dependency installation.
 
-## Scripts
-
-### `media-extensions.py`
+## `media-extensions.py`
 
 Restores file extensions for photos and videos by analyzing magic bytes.
 
@@ -33,13 +31,11 @@ python3 media-extensions.py /path/to/files --move-unknown /path/to/unknown
 python3 media-extensions.py /path/to/files --sanitize-names
 ```
 
----
-
-### `strip-subtitles.py`
+## `strip-subtitles.py`
 
 Strips embedded subtitle tracks from video files with `[4K]` in their filename using ffmpeg.
 
-Useful for removing unwanted forced subtitle tracks from 4K remuxes.
+May help resolve playback issues with 4K videos on Plex client apps.
 
 **Features:**
 - Scans a directory recursively or processes a single file
@@ -57,9 +53,9 @@ python3 strip-subtitles.py /path/to/media
 python3 strip-subtitles.py /path/to/file.mkv
 ```
 
----
+## `find-domain.py`
 
-### `find-domain.py`
+Not really related to media server but fun and may be useful.
 
 Finds available domains where the prefix + TLD suffix forms an English word (e.g. `mu.ch`, `bea.ch`, `rea.ch`).
 
@@ -92,11 +88,11 @@ Arguments:
 - `suffixes` — TLD or comma-separated list of TLDs (without leading dot)
 - `max_length` — maximum total word length to consider
 
----
+## `test-trackers.py`
 
-### `test-trackers.py`
+Filters public lists of BitTorrent trackers for validity and performance.
 
-Tests BitTorrent tracker URLs for validity and performance.
+Suggest running from your actual environment/country as results may vary. Australian users can try the `valid_trackers.txt` as is.
 
 **Features:**
 - Fetches tracker lists from multiple public sources
@@ -121,3 +117,7 @@ python3 test-trackers.py
 Output files:
 - `valid_trackers.txt` - List of working trackers
 - `response_log.txt` - Detailed test results
+
+## What's missing? 
+
+Made it this far? Submit an idea to the [Github issues page](https://github.com/swxxii/media-scripts/issues).
