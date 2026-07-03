@@ -9,8 +9,8 @@ scripts/
 ├── plex/              # Plex-related scripts
 ├── system/            # System maintenance scripts
 ├── tools/             # Utility tools
-└── config.example.yml # Example config file
-├── config.yml         # Your config file (gitignored, not in repo)
+├── config.example.yml # Example config file
+└── config.yml         # Your config file (gitignored, not in repo)
 ```
 
 ## Installation
