@@ -8,28 +8,30 @@
 #                and restarted after. Logs are written to backuparr.log next to
 #                the script (truncated each run).
 #
-# Usage        : Edit paths and the backup_containers list in config.yml.
+# Usage        : Edit paths and the backup_containers map in config.yml.
 #                Run this script daily or weekly via scheduled cron job.
 #
 # =============================================================================
-# CONFIG - customize as needed
+# CONFIG - all settings live in config.yml
 # =============================================================================
-
-# Per-container archive excludes (relative to the container's data folder).
-# Space-separate to exclude more than one path.
-declare -A EXCLUDES=(
-    ["radarr"]="config/MediaCover"
-    ["sonarr"]="config/MediaCover"
-    ["tautulli"]="cache"
-    ["homelab-docs"]="site repo"   # built HTML + git clone, both rebuilt on deploy (~10 MB)
-)
 
 # Read paths from config.yml
 _CONFIG="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../config.yml"
 read -r DOCKER_BASE_DIR SCRIPTS_DIR DESTDIR QBITTORRENT_CONF < <(python3 -c "import yaml; c=yaml.safe_load(open('$_CONFIG')); print(c['docker_base_dir'], c['scripts_dir'], c['backup_dest_dir'], c['qbittorrent_conf'])")
 
-# List of containers to stop/start and back up (from config.yml)
-mapfile -t CONTAINERS < <(python3 -c "import yaml; print('\n'.join(yaml.safe_load(open('$_CONFIG'))['backup_containers']))")
+# Containers to stop/start and back up, with their per-container archive excludes
+# (from config.yml). Emitted one container per line as tab-separated fields:
+# name, then each exclude path.
+declare -A EXCLUDES=()
+CONTAINERS=()
+while IFS=$'\t' read -r _c _paths; do
+    CONTAINERS+=("$_c")
+    EXCLUDES["$_c"]="$_paths"
+done < <(python3 -c "
+import yaml
+for name, opts in (yaml.safe_load(open('$_CONFIG'))['backup_containers'] or {}).items():
+    print('\t'.join([name] + list((opts or {}).get('excludes') or [])))
+")
 
 # Plex database dir (optional) — newest nightly snapshot is copied out for watch-history preservation
 PLEX_DB_DIR="$(python3 -c "import yaml; print(yaml.safe_load(open('$_CONFIG')).get('plex_db_dir',''))")"
@@ -91,17 +93,15 @@ if [ ${#CONTAINERS[@]} -gt 0 ]; then
 
     # Archive each container's data folder into a .tgz
     for c in "${CONTAINERS[@]}"; do
+        # Values are tab-separated; build one --exclude per path.
+        _exclude_args=()
         if [ -n "${EXCLUDES[$c]:-}" ]; then
-            # Values are space-separated; build one --exclude per path.
-            read -ra _paths <<< "${EXCLUDES[$c]}"
-            _exclude_args=()
+            IFS=$'\t' read -ra _paths <<< "${EXCLUDES[$c]}"
             for _p in "${_paths[@]}"; do
                 _exclude_args+=(--exclude="$_p")
             done
-            tar_job "$DOCKER_BASE_DIR/$c/" "$DESTDIR/$c.tgz" "${_exclude_args[@]}"
-        else
-            tar_job "$DOCKER_BASE_DIR/$c/" "$DESTDIR/$c.tgz"
         fi
+        tar_job "$DOCKER_BASE_DIR/$c/" "$DESTDIR/$c.tgz" "${_exclude_args[@]}"
     done
 
     section "Starting Docker containers"

@@ -23,8 +23,12 @@ qbittorrent_conf: /path/to/qBittorrent.conf
 # Plex DB dir — backuparr copies the newest nightly com.plexapp.plugins.library.db-YYYY-MM-DD snapshot from here
 plex_db_dir: /var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Plug-in Support/Databases
 
-# Backups — containers stopped, archived, and restarted by backuparr.sh
+# Backups — containers stopped, archived, and restarted by backuparr.sh.
+# Optional `excludes:` lists paths left out of the archive, relative to the
+# container's data folder. Omit it to archive the whole folder.
 backup_containers:
-  - sonarr
-  - radarr
-  - prowlarr
+  sonarr:
+    excludes: [config/MediaCover]
+  radarr:
+    excludes: [config/MediaCover]
+  prowlarr:
