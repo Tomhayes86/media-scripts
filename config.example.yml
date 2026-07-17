@@ -20,6 +20,8 @@ docker_base_dir: /path/to/docker
 scripts_dir: /path/to/scripts
 backup_dest_dir: /path/to/backups
 qbittorrent_conf: /path/to/qBittorrent.conf
+# Plex DB dir — backuparr copies the newest nightly com.plexapp.plugins.library.db-YYYY-MM-DD snapshot from here
+plex_db_dir: /var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Plug-in Support/Databases
 
 # Backups — containers stopped, archived, and restarted by backuparr.sh
 backup_containers:

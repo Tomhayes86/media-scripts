@@ -15,11 +15,13 @@
 # CONFIG - customize as needed
 # =============================================================================
 
-# Per-container archive excludes (relative to the container's data folder)
+# Per-container archive excludes (relative to the container's data folder).
+# Space-separate to exclude more than one path.
 declare -A EXCLUDES=(
     ["radarr"]="config/MediaCover"
     ["sonarr"]="config/MediaCover"
     ["tautulli"]="cache"
+    ["homelab-docs"]="site repo"   # built HTML + git clone, both rebuilt on deploy (~10 MB)
 )
 
 # Read paths from config.yml
@@ -28,6 +30,9 @@ read -r DOCKER_BASE_DIR SCRIPTS_DIR DESTDIR QBITTORRENT_CONF < <(python3 -c "imp
 
 # List of containers to stop/start and back up (from config.yml)
 mapfile -t CONTAINERS < <(python3 -c "import yaml; print('\n'.join(yaml.safe_load(open('$_CONFIG'))['backup_containers']))")
+
+# Plex database dir (optional) — newest nightly snapshot is copied out for watch-history preservation
+PLEX_DB_DIR="$(python3 -c "import yaml; print(yaml.safe_load(open('$_CONFIG')).get('plex_db_dir',''))")"
 
 # Log everything to backuparr.log next to this script (overwrite)
 set -euo pipefail
@@ -87,7 +92,13 @@ if [ ${#CONTAINERS[@]} -gt 0 ]; then
     # Archive each container's data folder into a .tgz
     for c in "${CONTAINERS[@]}"; do
         if [ -n "${EXCLUDES[$c]:-}" ]; then
-            tar_job "$DOCKER_BASE_DIR/$c/" "$DESTDIR/$c.tgz" --exclude="${EXCLUDES[$c]}"
+            # Values are space-separated; build one --exclude per path.
+            read -ra _paths <<< "${EXCLUDES[$c]}"
+            _exclude_args=()
+            for _p in "${_paths[@]}"; do
+                _exclude_args+=(--exclude="$_p")
+            done
+            tar_job "$DOCKER_BASE_DIR/$c/" "$DESTDIR/$c.tgz" "${_exclude_args[@]}"
         else
             tar_job "$DOCKER_BASE_DIR/$c/" "$DESTDIR/$c.tgz"
         fi
@@ -104,6 +115,30 @@ if [ ${#CONTAINERS[@]} -gt 0 ]; then
     for c in "${CONTAINERS[@]}"; do
         timeout 30 bash -c "while ! docker compose -f \"$DOCKER_BASE_DIR/$c/docker-compose.yml\" ps --services --filter status=running | grep -q .; do sleep 0.5; done"
     done
+fi
+
+# =============================================================================
+# PLEX DB BACKUP - copy Plex's newest nightly database snapshot
+# =============================================================================
+# Plex writes its own dated DB snapshots nightly (com.plexapp.plugins.library.db-YYYY-MM-DD).
+# These are consistent and world-readable, so no need to stop Plex - just copy the
+# most recent one out to the cloud-synced dest. This is the ONLY copy of watch history
+# (the rest of the Plex library is rebuildable from the media files). Keeps the 3 newest.
+if [ -n "$PLEX_DB_DIR" ] && [ -d "$PLEX_DB_DIR" ]; then
+    section "Backing up Plex database (newest nightly snapshot)"
+    newest_plex_db="$(ls -1t "$PLEX_DB_DIR"/com.plexapp.plugins.library.db-20* 2>/dev/null | head -1 || true)"
+    if [ -n "$newest_plex_db" ]; then
+        mkdir -p "$DESTDIR/plex"
+        echo "Copying $(basename "$newest_plex_db")..."
+        # NB: no -p — the OneDrive FUSE dest can't set mtime (utime → EPERM),
+        # which under `set -e` would abort the whole backup. The snapshot's date
+        # is in its filename, so preserving timestamps isn't needed.
+        cp "$newest_plex_db" "$DESTDIR/plex/"
+        # retain only the 3 most recent snapshots
+        ls -1t "$DESTDIR/plex/"com.plexapp.plugins.library.db-* 2>/dev/null | tail -n +4 | xargs -r rm -f
+    else
+        echo "WARNING: no Plex nightly DB snapshot found under $PLEX_DB_DIR"
+    fi
 fi
 
 # =============================================================================
