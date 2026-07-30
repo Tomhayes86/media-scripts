@@ -120,8 +120,7 @@ app.post('/api/import/bulk', async (c) => {
     text = await c.req.text();
   }
   if (!text.trim()) return c.json({ error: 'empty body' }, 400);
-  const added = await ingestBulk(text);
-  return c.json({ added });
+  return c.json(await ingestBulk(text));
 });
 
 app.post('/api/import/email', async (c) => {
@@ -196,9 +195,9 @@ async function pollLive(f) {
 }
 
 async function ingestBulk(raw) {
-  const candidates = parseBulk(raw);
+  const { flights, skipped, totalRows } = parseBulk(raw);
   const added = [];
-  for (const c of candidates) {
+  for (const c of flights) {
     try {
       const existing = db.findFlight(D, c.flight_number, c.flight_date);
       if (existing) { added.push({ flight_number: c.flight_number, flight_date: c.flight_date, status: 'exists', id: existing.id }); continue; }
@@ -217,7 +216,7 @@ async function ingestBulk(raw) {
       added.push({ flight_number: c.flight_number, flight_date: c.flight_date, status: 'error', error: e.message });
     }
   }
-  return added;
+  return { added, skipped, totalRows };
 }
 
 function bareFlight(c) {

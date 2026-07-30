@@ -7,6 +7,8 @@ struct ImportHistoryView: View {
     @State private var text: String = ""
     @State private var busy = false
     @State private var result: [ImportResult] = []
+    @State private var skipped: Int = 0
+    @State private var totalRows: Int = 0
     @State private var error: String?
     @State private var pickingFile = false
     @Environment(\.dismiss) private var dismiss
@@ -87,14 +89,20 @@ struct ImportHistoryView: View {
         let counts = Dictionary(grouping: result, by: { $0.status })
             .mapValues { $0.count }
             .sorted { $0.key < $1.key }
-        return counts.map { "\($0.value) \($0.key)" }.joined(separator: " · ")
+        var parts = counts.map { "\($0.value) \($0.key)" }
+        if skipped > 0 { parts.append("\(skipped) skipped") }
+        let denom = totalRows > 0 ? totalRows : (result.count + skipped)
+        return "\(result.count) of \(denom) rows — " + parts.joined(separator: " · ")
     }
 
     private func submit() async {
-        busy = true; error = nil; result = []
+        busy = true; error = nil; result = []; skipped = 0; totalRows = 0
         defer { busy = false }
         do {
-            result = try await API.shared.importBulk(text)
+            let resp = try await API.shared.importBulk(text)
+            result = resp.added
+            skipped = resp.skipped ?? 0
+            totalRows = resp.totalRows ?? 0
             if !result.isEmpty { await onImported() }
         } catch {
             self.error = error.localizedDescription

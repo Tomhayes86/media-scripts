@@ -147,8 +147,8 @@ export default {
           text = await request.text();
         }
         if (!text.trim()) return err('empty body');
-        const added = await ingestBulk(env, text);
-        return json({ added });
+        const result = await ingestBulk(env, text);
+        return json(result);
       }
 
       // ---- Email import ----
@@ -216,13 +216,12 @@ export default {
 };
 
 async function ingestBulk(env, raw) {
-  const candidates = parseBulk(raw);
+  const { flights, skipped, totalRows } = parseBulk(raw);
   const added = [];
-  for (const c of candidates) {
+  for (const c of flights) {
     try {
       const existing = await db.findFlight(env.DB, c.flight_number, c.flight_date);
       if (existing) { added.push({ flight_number: c.flight_number, flight_date: c.flight_date, status: 'exists', id: existing.id }); continue; }
-      // Try schedule lookup first for the freshest data.
       const fetched = await aeroFetch(c.flight_number, c.flight_date, env).catch(() => null);
       const payload = fetched
         ? { ...fetched, last_synced: new Date().toISOString() }
@@ -238,7 +237,7 @@ async function ingestBulk(env, raw) {
       added.push({ flight_number: c.flight_number, flight_date: c.flight_date, status: 'error', error: e.message });
     }
   }
-  return added;
+  return { added, skipped, totalRows };
 }
 
 function bareFlight(c) {

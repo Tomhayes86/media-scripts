@@ -66,23 +66,32 @@ public final class API: ObservableObject {
 
     // ---- Email import ----
 
-    public func importEmail(_ raw: String) async throws -> [ImportResult] {
+    public struct ImportResponse: Decodable {
+        public let added: [ImportResult]
+        public let skipped: Int?
+        public let totalRows: Int?
+        enum CodingKeys: String, CodingKey {
+            case added, skipped
+            case totalRows = "totalRows"
+        }
+    }
+
+    public func importEmail(_ raw: String) async throws -> ImportResponse {
         try await postImport(path: "/api/import/email", raw: raw)
     }
 
-    public func importBulk(_ raw: String) async throws -> [ImportResult] {
+    public func importBulk(_ raw: String) async throws -> ImportResponse {
         try await postImport(path: "/api/import/bulk", raw: raw)
     }
 
-    private func postImport(path: String, raw: String) async throws -> [ImportResult] {
+    private func postImport(path: String, raw: String) async throws -> ImportResponse {
         var req = URLRequest(url: url(path))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: ["raw": raw])
         let (data, resp) = try await session.data(for: req)
         try Self.throwIfBad(resp, data: data)
-        struct Wrapper: Decodable { let added: [ImportResult] }
-        return try JSONDecoder().decode(Wrapper.self, from: data).added
+        return try JSONDecoder().decode(ImportResponse.self, from: data)
     }
 
     // ---- APNs registration ----

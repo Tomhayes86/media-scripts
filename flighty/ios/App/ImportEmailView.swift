@@ -59,7 +59,7 @@ struct ImportEmailView: View {
         busy = true; error = nil; result = []
         defer { busy = false }
         do {
-            result = try await API.shared.importEmail(text)
+            result = try await API.shared.importEmail(text).added
             if !result.isEmpty { await onImported() }
         } catch {
             self.error = error.localizedDescription

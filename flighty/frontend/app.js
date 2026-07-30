@@ -148,11 +148,16 @@ $('#history-submit').addEventListener('click', async () => {
   if (!raw) return;
   historyResult.textContent = 'Importing… this can take a few seconds per flight.';
   try {
-    const { added = [], error } = await api.importBulk(raw);
+    const { added = [], skipped = 0, totalRows = 0, error } = await api.importBulk(raw);
     if (error) { historyResult.textContent = `Error: ${error}`; return; }
-    if (!added.length) { historyResult.textContent = 'No flights parsed. Check the file has flight_number + date columns.'; return; }
+    if (!added.length && !skipped) {
+      historyResult.textContent = 'No flights found. Check the file has flight_number + date columns.';
+      return;
+    }
     const counts = added.reduce((m, a) => { m[a.status] = (m[a.status] || 0) + 1; return m; }, {});
-    const summary = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(' · ');
+    const parts = Object.entries(counts).map(([k, v]) => `${v} ${k}`);
+    if (skipped) parts.push(`${skipped} skipped`);
+    const summary = `${added.length} of ${totalRows || (added.length + skipped)} rows — ${parts.join(' · ')}`;
     historyResult.innerHTML =
       `<div style="margin-bottom:.4rem;color:var(--muted);">${summary}</div>` +
       added.map(a =>

@@ -127,7 +127,11 @@ struct ShareView: View {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONSerialization.data(withJSONObject: ["raw": text])
             let (data, _) = try await URLSession.shared.data(for: req)
-            struct Wrapper: Decodable { let added: [ShareImportResult] }
+            struct Wrapper: Decodable {
+                let added: [ShareImportResult]
+                let skipped: Int?
+                let totalRows: Int?
+            }
             self.results = try JSONDecoder().decode(Wrapper.self, from: data).added
         } catch {
             self.error = error.localizedDescription

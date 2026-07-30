@@ -18,6 +18,9 @@ Bulk-add past (or future) flights from a CSV, TSV, or plain-text list. Works wit
   Content-Type: application/json
   { "raw": "<the full CSV or plain text>" }
   ```
+  Response: `{ added: [...], skipped: N, totalRows: N }` — one row per parsed
+  flight in `added`, plus how many input rows were skipped (metadata, blank
+  separators, junk) and how many rows the parser saw in total.
 
 ## What counts as an accepted row
 
@@ -87,6 +90,24 @@ FR8351,12/11/2024
 | `exists` | Already in your list; skipped |
 | `not_found` | Line failed to parse into a `flight_number` + `date` pair |
 | `error` | Something else went wrong (message shown) |
+
+## Messy files are fine
+
+The parser is deliberately forgiving. It'll cope with:
+
+- Preamble rows: `Exported from Flighty on 2024-08-30`, `Total flights: 47`, `User: you@…`
+- Blank rows and separator rows
+- **Header rows repeated inside the file** (e.g. one per trip or per year)
+- Rows with `Trip 1,,,,,` group labels
+- PNRs / booking references in a `PNR` column (they won't be mistaken for a flight)
+- Currency codes like `GBP450`, `USD1200` (won't be mistaken for a flight)
+- Smart quotes, non-breaking spaces, en-dashes copied from a PDF
+- Non-tabular junk lines like `Some note about my trip`
+- UTF-8 BOM prefix from Windows-generated files
+
+Each unrecognised row is silently skipped and counted; the response tells you
+how many were skipped out of the total so you can spot-check if a number
+looks off.
 
 ## Practical notes
 
