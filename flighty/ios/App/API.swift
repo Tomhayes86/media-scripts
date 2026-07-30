@@ -67,7 +67,15 @@ public final class API: ObservableObject {
     // ---- Email import ----
 
     public func importEmail(_ raw: String) async throws -> [ImportResult] {
-        var req = URLRequest(url: url("/api/import/email"))
+        try await postImport(path: "/api/import/email", raw: raw)
+    }
+
+    public func importBulk(_ raw: String) async throws -> [ImportResult] {
+        try await postImport(path: "/api/import/bulk", raw: raw)
+    }
+
+    private func postImport(path: String, raw: String) async throws -> [ImportResult] {
+        var req = URLRequest(url: url(path))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: ["raw": raw])

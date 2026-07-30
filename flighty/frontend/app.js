@@ -27,6 +27,12 @@ const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ raw }),
     }).then(r => r.json()),
+  importBulk: raw =>
+    fetch(`${API}/api/import/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw }),
+    }).then(r => r.json()),
   events: id => fetch(`${API}/api/flights/${id}/events`).then(r => r.json()),
   positions: id => fetch(`${API}/api/flights/${id}/positions`).then(r => r.json()),
   vapid: () => fetch(`${API}/api/push/vapid-public`).then(r => r.json()),
@@ -114,6 +120,50 @@ importDlg.addEventListener('click', e => {
   if (e.target === importDlg || e.target.hasAttribute('data-close')) importDlg.close();
 });
 $('#import-cancel').addEventListener('click', () => importDlg.close());
+// ---- Bulk history import ----
+const historyDlg = $('#history');
+const historyText = $('#history-text');
+const historyFile = $('#history-file');
+const historyResult = $('#history-result');
+
+$('#history-btn').addEventListener('click', () => {
+  historyText.value = '';
+  historyFile.value = '';
+  historyResult.textContent = '';
+  historyDlg.showModal();
+});
+historyDlg.addEventListener('click', e => {
+  if (e.target === historyDlg || e.target.hasAttribute('data-close')) historyDlg.close();
+});
+$('#history-cancel').addEventListener('click', () => historyDlg.close());
+
+historyFile.addEventListener('change', async () => {
+  const f = historyFile.files?.[0];
+  if (!f) return;
+  historyText.value = await f.text();
+});
+
+$('#history-submit').addEventListener('click', async () => {
+  const raw = historyText.value.trim();
+  if (!raw) return;
+  historyResult.textContent = 'Importing… this can take a few seconds per flight.';
+  try {
+    const { added = [], error } = await api.importBulk(raw);
+    if (error) { historyResult.textContent = `Error: ${error}`; return; }
+    if (!added.length) { historyResult.textContent = 'No flights parsed. Check the file has flight_number + date columns.'; return; }
+    const counts = added.reduce((m, a) => { m[a.status] = (m[a.status] || 0) + 1; return m; }, {});
+    const summary = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(' · ');
+    historyResult.innerHTML =
+      `<div style="margin-bottom:.4rem;color:var(--muted);">${summary}</div>` +
+      added.map(a =>
+        `<div>${a.flight_number} on ${a.flight_date} — ${a.status}${a.error ? ` (${a.error})` : ''}</div>`
+      ).join('');
+    render();
+  } catch (e) {
+    historyResult.textContent = `Error: ${e.message || e}`;
+  }
+});
+
 $('#import-submit').addEventListener('click', async () => {
   const raw = importText.value.trim();
   if (!raw) return;

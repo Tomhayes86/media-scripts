@@ -4,6 +4,7 @@ struct FlightListView: View {
     @StateObject private var vm = FlightListViewModel()
     @State private var showingAdd = false
     @State private var showingImport = false
+    @State private var showingHistory = false
 
     var body: some View {
         NavigationStack {
@@ -38,7 +39,16 @@ struct FlightListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button { showingImport = true } label: { Image(systemName: "tray.and.arrow.down") }
+                    Menu {
+                        Button { showingImport = true } label: {
+                            Label("From email", systemImage: "envelope")
+                        }
+                        Button { showingHistory = true } label: {
+                            Label("Flight history (CSV)", systemImage: "books.vertical")
+                        }
+                    } label: {
+                        Image(systemName: "tray.and.arrow.down")
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingAdd = true } label: { Image(systemName: "plus.circle.fill") }
@@ -53,6 +63,9 @@ struct FlightListView: View {
             }
             .sheet(isPresented: $showingImport) {
                 ImportEmailView { await vm.load() }
+            }
+            .sheet(isPresented: $showingHistory) {
+                ImportHistoryView { await vm.load() }
             }
         }
         .task { await vm.load() }

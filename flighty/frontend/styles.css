@@ -40,7 +40,8 @@ header h1 { margin: 0; font-size: 1.4rem; }
 }
 #add-form input { flex: 1; min-width: 0; }
 #add-form button { background: var(--accent); color: white; font-weight: 600; }
-#add-form #import-btn { background: var(--panel-2); color: var(--text); font-weight: 400; font-size: 1.2rem; }
+#add-form #import-btn,
+#add-form #history-btn { background: var(--panel-2); color: var(--text); font-weight: 400; font-size: 1.2rem; }
 #flight-list { list-style: none; padding: 0 1rem 4rem; margin: 0; display: grid; gap: .75rem; }
 .card {
   background: var(--panel); border-radius: .9rem; padding: 1rem;

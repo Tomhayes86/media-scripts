@@ -11,6 +11,7 @@ import * as db from './db.js';
 import { fetchFlight as aeroFetch } from './providers/aerodatabox.js';
 import { currentState as openskyState } from './providers/opensky.js';
 import { parseEmail } from './email/parser.js';
+import { parseBulk } from './bulkImport.js';
 import { generatePass } from './pkpass.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -109,6 +110,20 @@ app.get('/api/flights/:id/pkpass', async (c) => {
   }
 });
 
+app.post('/api/import/bulk', async (c) => {
+  const ct = c.req.header('Content-Type') || '';
+  let text = '';
+  if (ct.includes('application/json')) {
+    const body = await c.req.json();
+    text = body?.raw || body?.text || '';
+  } else {
+    text = await c.req.text();
+  }
+  if (!text.trim()) return c.json({ error: 'empty body' }, 400);
+  const added = await ingestBulk(text);
+  return c.json({ added });
+});
+
 app.post('/api/import/email', async (c) => {
   const ct = c.req.header('Content-Type') || '';
   let text = '';
@@ -178,6 +193,41 @@ async function pollLive(f) {
     if (!state || state.lat == null || state.lon == null) return;
     db.insertPosition(D, f.id, state);
   } catch (_) {}
+}
+
+async function ingestBulk(raw) {
+  const candidates = parseBulk(raw);
+  const added = [];
+  for (const c of candidates) {
+    try {
+      const existing = db.findFlight(D, c.flight_number, c.flight_date);
+      if (existing) { added.push({ flight_number: c.flight_number, flight_date: c.flight_date, status: 'exists', id: existing.id }); continue; }
+      const fetched = await aeroFetch(c.flight_number, c.flight_date, env).catch(() => null);
+      const payload = fetched
+        ? { ...fetched, last_synced: new Date().toISOString() }
+        : bareFlight(c);
+      const id = db.insertFlight(D, payload);
+      added.push({
+        flight_number: c.flight_number,
+        flight_date: c.flight_date,
+        status: fetched ? 'added' : 'added_manual',
+        id,
+      });
+    } catch (e) {
+      added.push({ flight_number: c.flight_number, flight_date: c.flight_date, status: 'error', error: e.message });
+    }
+  }
+  return added;
+}
+
+function bareFlight(c) {
+  const out = { flight_number: c.flight_number, flight_date: c.flight_date };
+  for (const k of ['origin_iata','origin_name','destination_iata','destination_name',
+                   'airline_iata','airline_name','aircraft_reg',
+                   'scheduled_dep','scheduled_arr','actual_dep','actual_arr','status']) {
+    if (c[k]) out[k] = c[k];
+  }
+  return out;
 }
 
 async function ingestEmail(raw) {

@@ -28,9 +28,32 @@
     <input id="flight-date" type="date" required />
     <button type="submit">Add</button>
     <button type="button" id="import-btn" title="Import from email">✉︎</button>
+    <button type="button" id="history-btn" title="Import flight history (CSV)">📚</button>
   </form>
 
   <ul id="flight-list"></ul>
+
+  <dialog id="history">
+    <button class="close" data-close>×</button>
+    <div style="padding: 1rem 1.25rem 1.5rem;">
+      <h2 style="margin:0 0 .5rem;">Import flight history</h2>
+      <p style="color:var(--muted); margin: 0 0 .75rem;">
+        Upload a CSV (Flighty export, App in the Air export, or any sheet with
+        <code>flight_number</code> + <code>date</code> columns), or paste
+        <code>BA286 2024-03-15</code>-style lines.
+      </p>
+      <input id="history-file" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain"
+             style="margin-bottom:.5rem; color:var(--muted);" />
+      <textarea id="history-text" rows="10"
+                style="width:100%; padding:.6rem; border-radius:.5rem; background:var(--panel-2); color:var(--text); border:0; font-family: ui-monospace, SF Mono, Menlo, monospace; font-size: .85rem;"
+                placeholder="flight_number,flight_date,origin,destination&#10;BA286,2024-03-15,LHR,SFO&#10;UA924,2024-04-22,SFO,LHR"></textarea>
+      <div class="btn-row" style="margin-top: .75rem;">
+        <button id="history-cancel" type="button">Cancel</button>
+        <button id="history-submit" type="button" style="background: var(--accent); color: white;">Import all</button>
+      </div>
+      <div id="history-result" style="margin-top:.75rem; font-size:.9rem; max-height: 200px; overflow-y: auto;"></div>
+    </div>
+  </dialog>
 
   <dialog id="import">
     <button class="close" data-close>×</button>
