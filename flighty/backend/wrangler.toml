@@ -1,0 +1,21 @@
+name = "flighty"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flighty"
+database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+
+# Poll live-tracked flights every 2 minutes; poll upcoming flights hourly.
+[triggers]
+crons = ["*/2 * * * *", "0 * * * *"]
+
+[vars]
+# Set via `wrangler secret put` — do NOT commit real keys.
+# RAPIDAPI_KEY = "..."
+# OPENSKY_USERNAME = "..."
+# OPENSKY_PASSWORD = "..."
+# VAPID_PUBLIC_KEY = "..."
+# VAPID_PRIVATE_KEY = "..."
+# VAPID_SUBJECT = "mailto:you@example.com"
