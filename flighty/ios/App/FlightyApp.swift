@@ -6,10 +6,17 @@ import UserNotifications
 struct FlightyApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
+    init() {
+        AppConfig.publishToSharedDefaults()
+    }
+
     var body: some Scene {
         WindowGroup {
             FlightListView()
-                .task { await requestPushAuth() }
+                .task {
+                    await requestPushAuth()
+                    AirportGeofencer.shared.requestAuthorization()
+                }
         }
     }
 

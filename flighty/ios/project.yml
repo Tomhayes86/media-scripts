@@ -27,6 +27,7 @@ targets:
     dependencies:
       - target: FlightyWidget
       - target: FlightyLiveActivity
+      - target: FlightyShare
     info:
       path: App/Info.plist
       properties:
@@ -35,9 +36,12 @@ targets:
           UIColorName: LaunchBackground
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: true
+        NSLocationWhenInUseUsageDescription: "Flighty flips live tracking on when you arrive at your departure airport."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Flighty uses a background geofence around your upcoming flight's departure airport to switch live tracking on automatically when you arrive."
         UIBackgroundModes:
           - remote-notification
           - fetch
+          - location
         UIRequiredDeviceCapabilities:
           - arm64
         UISupportedInterfaceOrientations:
@@ -79,6 +83,32 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.flighty.widget
         INFOPLIST_KEY_CFBundleDisplayName: Flighty Widget
+
+  FlightyShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Share
+    info:
+      path: Share/Info.plist
+      properties:
+        CFBundleDisplayName: Send to Flighty
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsAttachmentsWithMaxCount: 1
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+    entitlements:
+      path: Share/Share.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.example.flighty
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.flighty.share
 
   FlightyLiveActivity:
     type: app-extension

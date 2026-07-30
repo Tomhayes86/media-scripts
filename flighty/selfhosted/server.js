@@ -11,6 +11,7 @@ import * as db from './db.js';
 import { fetchFlight as aeroFetch } from './providers/aerodatabox.js';
 import { currentState as openskyState } from './providers/opensky.js';
 import { parseEmail } from './email/parser.js';
+import { generatePass } from './pkpass.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,10 @@ const env = {
   VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
   VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
   FRONTEND_DIR: process.env.FRONTEND_DIR || resolve(__dirname, '../frontend'),
+  PASSKIT_DIR: process.env.PASSKIT_DIR || '/app/data/passkit',
+  PASS_TYPE_ID: process.env.PASS_TYPE_ID,
+  TEAM_ID: process.env.TEAM_ID,
+  ORG_NAME: process.env.ORG_NAME || 'Flighty',
 };
 
 if (!env.RAPIDAPI_KEY) {
@@ -86,6 +91,23 @@ app.post('/api/flights/:id/refresh', async (c) => {
 
 app.get('/api/flights/:id/events', (c) => c.json(db.listEvents(D, Number(c.req.param('id')))));
 app.get('/api/flights/:id/positions', (c) => c.json(db.listPositions(D, Number(c.req.param('id')))));
+
+app.get('/api/flights/:id/pkpass', async (c) => {
+  const f = db.getFlight(D, Number(c.req.param('id')));
+  if (!f) return c.json({ error: 'Not found' }, 404);
+  if (!env.PASS_TYPE_ID || !env.TEAM_ID) return c.json({ error: 'Wallet passes not configured' }, 501);
+  try {
+    const buf = await generatePass(f, env);
+    return new Response(buf, {
+      headers: {
+        'Content-Type': 'application/vnd.apple.pkpass',
+        'Content-Disposition': `attachment; filename=${f.flight_number}.pkpass`,
+      },
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
 
 app.post('/api/import/email', async (c) => {
   const ct = c.req.header('Content-Type') || '';

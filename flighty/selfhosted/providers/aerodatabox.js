@@ -11,7 +11,7 @@ export async function fetchFlight(flightNumber, dateYmd, env) {
   if (!env.RAPIDAPI_KEY) throw new Error('RAPIDAPI_KEY not set');
   const url = `${BASE}/flights/number/${encodeURIComponent(
     flightNumber
-  )}/${dateYmd}?withAircraftImage=false&withLocation=false`;
+  )}/${dateYmd}?withAircraftImage=false&withLocation=true`;
 
   const res = await fetch(url, {
     headers: {
@@ -43,8 +43,12 @@ function normalize(raw, flightNumber, dateYmd) {
     airline_name: airline.name || null,
     origin_iata: dep.airport?.iata || null,
     origin_name: dep.airport?.name || null,
+    origin_lat: dep.airport?.location?.lat ?? null,
+    origin_lon: dep.airport?.location?.lon ?? null,
     destination_iata: arr.airport?.iata || null,
     destination_name: arr.airport?.name || null,
+    destination_lat: arr.airport?.location?.lat ?? null,
+    destination_lon: arr.airport?.location?.lon ?? null,
     scheduled_dep: dep.scheduledTime?.utc || null,
     scheduled_arr: arr.scheduledTime?.utc || null,
     estimated_dep: dep.predictedTime?.utc || dep.revisedTime?.utc || null,

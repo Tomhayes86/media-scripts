@@ -19,6 +19,9 @@ struct FlightDetailView: View {
                     BoardingPassCard(flight: flight)
                         .padding(.horizontal)
 
+                    AddToWalletButton(flightId: flight.id)
+                        .padding(.horizontal)
+
                     Toggle(isOn: Binding(
                         get: { flight.liveTracking },
                         set: { newVal in

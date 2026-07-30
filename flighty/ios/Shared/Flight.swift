@@ -9,8 +9,12 @@ public struct Flight: Codable, Identifiable, Hashable, Sendable {
     public var airlineName: String?
     public var originIata: String?
     public var originName: String?
+    public var originLat: Double?
+    public var originLon: Double?
     public var destinationIata: String?
     public var destinationName: String?
+    public var destinationLat: Double?
+    public var destinationLon: Double?
     public var scheduledDep: Date?
     public var scheduledArr: Date?
     public var estimatedDep: Date?
@@ -35,8 +39,12 @@ public struct Flight: Codable, Identifiable, Hashable, Sendable {
         case airlineName  = "airline_name"
         case originIata   = "origin_iata"
         case originName   = "origin_name"
+        case originLat    = "origin_lat"
+        case originLon    = "origin_lon"
         case destinationIata = "destination_iata"
         case destinationName = "destination_name"
+        case destinationLat  = "destination_lat"
+        case destinationLon  = "destination_lon"
         case scheduledDep = "scheduled_dep"
         case scheduledArr = "scheduled_arr"
         case estimatedDep = "estimated_dep"
@@ -63,8 +71,12 @@ public struct Flight: Codable, Identifiable, Hashable, Sendable {
         airlineName = try c.decodeIfPresent(String.self, forKey: .airlineName)
         originIata = try c.decodeIfPresent(String.self, forKey: .originIata)
         originName = try c.decodeIfPresent(String.self, forKey: .originName)
+        originLat = try c.decodeIfPresent(Double.self, forKey: .originLat)
+        originLon = try c.decodeIfPresent(Double.self, forKey: .originLon)
         destinationIata = try c.decodeIfPresent(String.self, forKey: .destinationIata)
         destinationName = try c.decodeIfPresent(String.self, forKey: .destinationName)
+        destinationLat = try c.decodeIfPresent(Double.self, forKey: .destinationLat)
+        destinationLon = try c.decodeIfPresent(Double.self, forKey: .destinationLon)
         scheduledDep = Self.parseDate(try c.decodeIfPresent(String.self, forKey: .scheduledDep))
         scheduledArr = Self.parseDate(try c.decodeIfPresent(String.self, forKey: .scheduledArr))
         estimatedDep = Self.parseDate(try c.decodeIfPresent(String.self, forKey: .estimatedDep))
@@ -92,8 +104,12 @@ public struct Flight: Codable, Identifiable, Hashable, Sendable {
         try c.encodeIfPresent(airlineName, forKey: .airlineName)
         try c.encodeIfPresent(originIata, forKey: .originIata)
         try c.encodeIfPresent(originName, forKey: .originName)
+        try c.encodeIfPresent(originLat, forKey: .originLat)
+        try c.encodeIfPresent(originLon, forKey: .originLon)
         try c.encodeIfPresent(destinationIata, forKey: .destinationIata)
         try c.encodeIfPresent(destinationName, forKey: .destinationName)
+        try c.encodeIfPresent(destinationLat, forKey: .destinationLat)
+        try c.encodeIfPresent(destinationLon, forKey: .destinationLon)
         try c.encodeIfPresent(scheduledDep.flatMap(Self.isoString), forKey: .scheduledDep)
         try c.encodeIfPresent(scheduledArr.flatMap(Self.isoString), forKey: .scheduledArr)
         try c.encodeIfPresent(estimatedDep.flatMap(Self.isoString), forKey: .estimatedDep)

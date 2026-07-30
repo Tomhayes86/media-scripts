@@ -135,7 +135,10 @@ final class FlightListViewModel: ObservableObject {
     func load() async {
         loading = true
         defer { loading = false }
-        do { flights = try await API.shared.listFlights() }
+        do {
+            flights = try await API.shared.listFlights()
+            AirportGeofencer.shared.sync(with: flights)
+        }
         catch { self.error = error.localizedDescription }
     }
 

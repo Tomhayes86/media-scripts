@@ -20,6 +20,10 @@ services:
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
       - TZ=${TZ:-Europe/London}
+      # Apple Wallet pass generation (optional — leave blank to disable)
+      - PASS_TYPE_ID=${PASS_TYPE_ID:-}
+      - TEAM_ID=${TEAM_ID:-}
+      - ORG_NAME=${ORG_NAME:-Flighty}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/flights').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 60s

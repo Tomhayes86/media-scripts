@@ -15,4 +15,9 @@ public enum AppConfig {
     public static var sharedContainer: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
     }
+
+    /// Called at app launch so the Share extension reads the same backend URL.
+    public static func publishToSharedDefaults() {
+        sharedDefaults.set(apiBaseURL.absoluteString, forKey: "apiBaseURL")
+    }
 }
