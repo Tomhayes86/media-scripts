@@ -64,6 +64,19 @@ public final class API: ObservableObject {
         return try decoder().decode([FlightPosition].self, from: data)
     }
 
+    // ---- Email import ----
+
+    public func importEmail(_ raw: String) async throws -> [ImportResult] {
+        var req = URLRequest(url: url("/api/import/email"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["raw": raw])
+        let (data, resp) = try await session.data(for: req)
+        try Self.throwIfBad(resp, data: data)
+        struct Wrapper: Decodable { let added: [ImportResult] }
+        return try JSONDecoder().decode(Wrapper.self, from: data).added
+    }
+
     // ---- APNs registration ----
 
     public func registerDevice(token: String, name: String?) async throws {

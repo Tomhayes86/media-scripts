@@ -27,9 +27,29 @@
     <input id="flight-number" placeholder="Flight (e.g. BA286)" autocapitalize="characters" required />
     <input id="flight-date" type="date" required />
     <button type="submit">Add</button>
+    <button type="button" id="import-btn" title="Import from email">✉︎</button>
   </form>
 
   <ul id="flight-list"></ul>
+
+  <dialog id="import">
+    <button class="close" data-close>×</button>
+    <div style="padding: 1rem 1.25rem 1.5rem;">
+      <h2 style="margin:0 0 .5rem;">Import from email</h2>
+      <p style="color:var(--muted); margin: 0 0 .75rem;">
+        Paste a booking-confirmation email (headers + body, or just the plain text).
+        Works with any airline or booking site.
+      </p>
+      <textarea id="import-text" rows="10"
+                style="width:100%; padding:.6rem; border-radius:.5rem; background:var(--panel-2); color:var(--text); border:0; font-family: inherit;"
+                placeholder="Paste the email here…"></textarea>
+      <div class="btn-row" style="margin-top: .75rem;">
+        <button id="import-cancel" type="button">Cancel</button>
+        <button id="import-submit" type="button" style="background: var(--accent); color: white;">Import</button>
+      </div>
+      <div id="import-result" style="margin-top:.75rem; font-size:.9rem;"></div>
+    </div>
+  </dialog>
 
   <dialog id="detail">
     <button class="close" data-close>×</button>

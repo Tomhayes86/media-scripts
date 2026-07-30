@@ -3,6 +3,7 @@ import { fetchFlight as aeroFetch } from './providers/aerodatabox.js';
 import { currentState as openskyState } from './providers/opensky.js';
 import { sendPush } from './push.js';
 import { sendAlert as apnsAlert, sendLiveActivity as apnsLiveActivity } from './apns.js';
+import { parseEmail } from './email/parser.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -134,6 +135,21 @@ export default {
         return json({ ok: true, sent: devices.length });
       }
 
+      // ---- Email import ----
+      if (p === '/api/import/email' && request.method === 'POST') {
+        const ct = request.headers.get('Content-Type') || '';
+        let text = '';
+        if (ct.includes('application/json')) {
+          const body = await request.json();
+          text = body?.raw || body?.text || '';
+        } else {
+          text = await request.text();
+        }
+        if (!text.trim()) return err('empty body');
+        const added = await ingestEmail(env, text);
+        return json({ added });
+      }
+
       // ---- Live Activity registration ----
       const laStart = p.match(/^\/api\/flights\/(\d+)\/live-activity$/);
       if (laStart && request.method === 'POST') {
@@ -155,6 +171,17 @@ export default {
     }
   },
 
+  // Cloudflare Email Worker entry point. Bind the domain via the dashboard
+  // (Email → Email Routing → Email Workers) and route addresses to this Worker.
+  async email(message, env, ctx) {
+    ctx.waitUntil(
+      (async () => {
+        const raw = await new Response(message.raw).text();
+        await ingestEmail(env, raw);
+      })()
+    );
+  },
+
   async scheduled(event, env, ctx) {
     // Fires on cron. Poll live-tracked flights every run;
     // refresh schedules of upcoming flights on hourly runs only.
@@ -171,6 +198,27 @@ export default {
     );
   },
 };
+
+async function ingestEmail(env, raw) {
+  const candidates = parseEmail(raw);
+  const added = [];
+  for (const c of candidates) {
+    try {
+      const existing = await db.findFlight(env.DB, c.flight_number, c.flight_date);
+      if (existing) { added.push({ ...c, status: 'exists', id: existing.id }); continue; }
+      const fetched = await aeroFetch(c.flight_number, c.flight_date, env);
+      if (!fetched) { added.push({ ...c, status: 'not_found' }); continue; }
+      const id = await db.insertFlight(env.DB, {
+        ...fetched,
+        last_synced: new Date().toISOString(),
+      });
+      added.push({ ...c, status: 'added', id });
+    } catch (e) {
+      added.push({ ...c, status: 'error', error: e.message });
+    }
+  }
+  return added;
+}
 
 async function refreshFlight(env, f) {
   const fresh = await aeroFetch(f.flight_number, f.flight_date, env);

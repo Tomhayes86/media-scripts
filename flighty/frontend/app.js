@@ -24,6 +24,12 @@ const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }).then(r => r.json()),
+  importEmail: raw =>
+    fetch(`${API}/api/import/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw }),
+    }).then(r => r.json()),
   events: id => fetch(`${API}/api/flights/${id}/events`).then(r => r.json()),
   positions: id => fetch(`${API}/api/flights/${id}/positions`).then(r => r.json()),
   vapid: () => fetch(`${API}/api/push/vapid-public`).then(r => r.json()),
@@ -96,6 +102,37 @@ $('#add-form').addEventListener('submit', async e => {
 
 // Default date to today.
 $('#flight-date').valueAsDate = new Date();
+
+// ---- Import from email ----
+const importDlg = $('#import');
+const importText = $('#import-text');
+const importResult = $('#import-result');
+
+$('#import-btn').addEventListener('click', () => {
+  importText.value = '';
+  importResult.textContent = '';
+  importDlg.showModal();
+});
+importDlg.addEventListener('click', e => {
+  if (e.target === importDlg || e.target.hasAttribute('data-close')) importDlg.close();
+});
+$('#import-cancel').addEventListener('click', () => importDlg.close());
+$('#import-submit').addEventListener('click', async () => {
+  const raw = importText.value.trim();
+  if (!raw) return;
+  importResult.textContent = 'Parsing…';
+  try {
+    const { added = [], error } = await api.importEmail(raw);
+    if (error) { importResult.textContent = `Error: ${error}`; return; }
+    if (!added.length) { importResult.textContent = 'No flights found in that email.'; return; }
+    importResult.innerHTML = added.map(a =>
+      `<div>${a.flight_number} on ${a.flight_date} — ${a.status}${a.error ? ` (${a.error})` : ''}</div>`
+    ).join('');
+    render();
+  } catch (e) {
+    importResult.textContent = `Error: ${e.message || e}`;
+  }
+});
 
 // ---- Detail ----
 let mapInstance = null;
