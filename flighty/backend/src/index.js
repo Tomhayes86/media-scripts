@@ -2,6 +2,7 @@ import * as db from './db.js';
 import { fetchFlight as aeroFetch } from './providers/aerodatabox.js';
 import { currentState as openskyState } from './providers/opensky.js';
 import { sendPush } from './push.js';
+import { sendAlert as apnsAlert, sendLiveActivity as apnsLiveActivity } from './apns.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -108,6 +109,46 @@ export default {
         return json({ ok: true, sent: subs.length });
       }
 
+      // ---- iOS APNs ----
+      if (p === '/api/ios/register' && request.method === 'POST') {
+        const body = await request.json();
+        if (!body?.device_token) return err('device_token required');
+        const dev = await db.upsertIosDevice(env.DB, body.device_token, body.device_name);
+        return json(dev);
+      }
+
+      if (p === '/api/ios/unregister' && request.method === 'POST') {
+        const body = await request.json();
+        if (body?.device_token) await db.deleteIosDevice(env.DB, body.device_token);
+        return json({ ok: true });
+      }
+
+      if (p === '/api/ios/test' && request.method === 'POST') {
+        const devices = await db.listIosDevices(env.DB);
+        for (const d of devices) {
+          await apnsAlert(env, d.device_token, {
+            title: 'Flighty-lite',
+            body: 'APNs works!',
+          });
+        }
+        return json({ ok: true, sent: devices.length });
+      }
+
+      // ---- Live Activity registration ----
+      const laStart = p.match(/^\/api\/flights\/(\d+)\/live-activity$/);
+      if (laStart && request.method === 'POST') {
+        const flightId = Number(laStart[1]);
+        const body = await request.json();
+        if (!body?.push_token) return err('push_token required');
+        await db.upsertLiveActivity(env.DB, flightId, body.push_token, body.device_id || null);
+        return json({ ok: true });
+      }
+      if (laStart && request.method === 'DELETE') {
+        const body = await request.json();
+        if (body?.push_token) await db.endLiveActivity(env.DB, body.push_token);
+        return json({ ok: true });
+      }
+
       return err('Not found', 404);
     } catch (e) {
       return err(e.message || String(e), 500);
@@ -138,18 +179,76 @@ async function refreshFlight(env, f) {
   const diffs = diffFlight(f, fresh);
   const patch = { ...fresh, last_synced: new Date().toISOString() };
   await db.updateFlight(env.DB, f.id, patch);
+  const merged = { ...f, ...patch };
 
   if (diffs.length) {
-    const subs = await db.listPushSubs(env.DB);
     for (const d of diffs) {
       await db.insertEvent(env.DB, f.id, d.kind, d.detail, d.before, d.after);
     }
-    await notify(env, subs, {
-      title: `${f.flight_number} update`,
-      body: diffs.map((d) => d.detail).join(' · '),
-      data: { flightId: f.id },
-    });
+    const title = `${f.flight_number} update`;
+    const body = diffs.map((d) => d.detail).join(' · ');
+
+    // Web Push (browsers / PWA)
+    const subs = await db.listPushSubs(env.DB);
+    await notify(env, subs, { title, body, data: { flightId: f.id } });
+
+    // APNs (native iOS)
+    const devices = await db.listIosDevices(env.DB);
+    for (const dev of devices) {
+      try {
+        const res = await apnsAlert(env, dev.device_token, {
+          title,
+          body,
+          data: { flightId: f.id },
+          threadId: `flight-${f.id}`,
+          collapseId: `flight-${f.id}`,
+        });
+        if (res && (res.status === 400 || res.status === 410)) {
+          await db.deleteIosDevice(env.DB, dev.device_token);
+        }
+      } catch (_) {}
+    }
   }
+
+  // Always push a Live Activity update if any are running for this flight.
+  const activities = await db.activeLiveActivitiesForFlight(env.DB, f.id);
+  if (activities.length) {
+    const state = liveActivityState(merged);
+    const isFinal =
+      merged.status && ['landed', 'arrived', 'cancelled'].includes(merged.status.toLowerCase());
+    for (const a of activities) {
+      try {
+        const res = await apnsLiveActivity(env, a.push_token, state, {
+          event: isFinal ? 'end' : 'update',
+          staleDate: Math.floor(Date.now() / 1000) + 15 * 60,
+          dismissalDate: isFinal ? Math.floor(Date.now() / 1000) + 3600 : undefined,
+          alert: diffs.length
+            ? { title: `${f.flight_number}`, body: diffs.map((d) => d.detail).join(' · ') }
+            : undefined,
+        });
+        if (isFinal) await db.endLiveActivity(env.DB, a.push_token);
+        if (res && (res.status === 400 || res.status === 410)) {
+          await db.endLiveActivity(env.DB, a.push_token);
+        }
+      } catch (_) {}
+    }
+  }
+}
+
+function liveActivityState(f) {
+  return {
+    status: f.status || 'scheduled',
+    scheduledDep: f.scheduled_dep,
+    scheduledArr: f.scheduled_arr,
+    estimatedDep: f.estimated_dep,
+    estimatedArr: f.estimated_arr,
+    gateDep: f.gate_dep,
+    gateArr: f.gate_arr,
+    terminalDep: f.terminal_dep,
+    terminalArr: f.terminal_arr,
+    originIata: f.origin_iata,
+    destinationIata: f.destination_iata,
+  };
 }
 
 async function pollLive(env, f) {

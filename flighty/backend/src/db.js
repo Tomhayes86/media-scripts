@@ -142,3 +142,64 @@ export async function deletePushSub(db, endpoint) {
     .bind(endpoint)
     .run();
 }
+
+// ---- iOS APNs devices ----
+
+export async function upsertIosDevice(db, deviceToken, deviceName) {
+  await db
+    .prepare(
+      `INSERT INTO ios_devices (device_token, device_name)
+       VALUES (?, ?)
+       ON CONFLICT(device_token) DO UPDATE SET device_name = excluded.device_name`
+    )
+    .bind(deviceToken, deviceName || null)
+    .run();
+  return db
+    .prepare('SELECT * FROM ios_devices WHERE device_token = ?')
+    .bind(deviceToken)
+    .first();
+}
+
+export async function listIosDevices(db) {
+  const { results } = await db.prepare('SELECT * FROM ios_devices').all();
+  return results;
+}
+
+export async function deleteIosDevice(db, deviceToken) {
+  await db
+    .prepare('DELETE FROM ios_devices WHERE device_token = ?')
+    .bind(deviceToken)
+    .run();
+}
+
+// ---- Live Activity tokens ----
+
+export async function upsertLiveActivity(db, flightId, pushToken, deviceId) {
+  await db
+    .prepare(
+      `INSERT INTO live_activities (flight_id, push_token, device_id)
+       VALUES (?, ?, ?)
+       ON CONFLICT(push_token) DO UPDATE SET flight_id = excluded.flight_id, ended_at = NULL`
+    )
+    .bind(flightId, pushToken, deviceId || null)
+    .run();
+}
+
+export async function endLiveActivity(db, pushToken) {
+  await db
+    .prepare(
+      "UPDATE live_activities SET ended_at = datetime('now') WHERE push_token = ?"
+    )
+    .bind(pushToken)
+    .run();
+}
+
+export async function activeLiveActivitiesForFlight(db, flightId) {
+  const { results } = await db
+    .prepare(
+      'SELECT * FROM live_activities WHERE flight_id = ? AND ended_at IS NULL'
+    )
+    .bind(flightId)
+    .all();
+  return results;
+}

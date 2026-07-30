@@ -1,0 +1,104 @@
+name: Flighty
+options:
+  bundleIdPrefix: com.example.flighty
+  deploymentTarget:
+    iOS: "16.4"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: "" # <-- put your 10-char Team ID here
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.4"
+
+targets:
+  Flighty:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Shared
+    resources:
+      - path: App/Resources
+    dependencies:
+      - target: FlightyWidget
+      - target: FlightyLiveActivity
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Flighty
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        UIBackgroundModes:
+          - remote-notification
+          - fetch
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+    entitlements:
+      path: App/Flighty.entitlements
+      properties:
+        aps-environment: development
+        com.apple.security.application-groups:
+          - group.com.example.flighty
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.flighty
+        TARGETED_DEVICE_FAMILY: "1,2"
+
+  FlightyWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+      - path: Shared
+    resources:
+      - path: Widget/Assets.xcassets
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Flighty Widget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widget/Widget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.example.flighty
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.flighty.widget
+        INFOPLIST_KEY_CFBundleDisplayName: Flighty Widget
+
+  FlightyLiveActivity:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: LiveActivity
+      - path: Shared
+    resources:
+      - path: LiveActivity/Assets.xcassets
+    info:
+      path: LiveActivity/Info.plist
+      properties:
+        CFBundleDisplayName: Flighty Activity
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: LiveActivity/LiveActivity.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.example.flighty
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.flighty.liveactivity
