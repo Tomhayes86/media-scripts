@@ -1,11 +1,8 @@
-// Point this at your deployed Worker.
-// For local dev with `wrangler dev`, use http://127.0.0.1:8787.
-const API =
-  location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-    ? 'http://127.0.0.1:8787'
-    : location.origin.replace(/^https?:\/\//, 'https://api.');
-  // ^^ change 'api.' to whatever subdomain you deploy the Worker on,
-  // or just hardcode: const API = 'https://flighty.<you>.workers.dev';
+// API base URL.
+// - Self-hosted (Node server serves the PWA on the same port): same-origin.
+// - Cloudflare Worker separate from Pages: override by setting window.FLIGHTY_API
+//   before this script loads, or hardcode below.
+const API = window.FLIGHTY_API || location.origin;
 
 const api = {
   list: () => fetch(`${API}/api/flights`).then(r => r.json()),
