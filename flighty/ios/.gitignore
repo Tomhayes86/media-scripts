@@ -1,0 +1,15 @@
+# XcodeGen generates these — don't commit
+Flighty.xcodeproj/
+Flighty.xcworkspace/
+
+# Xcode
+xcuserdata/
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved

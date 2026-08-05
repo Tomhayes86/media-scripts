@@ -1,0 +1,28 @@
+name = "flighty"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flighty"
+database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+
+# Poll live-tracked flights every 2 minutes; poll upcoming flights hourly.
+[triggers]
+crons = ["*/2 * * * *", "0 * * * *"]
+
+# Email Worker: after deploying, in the Cloudflare dashboard go to
+#   Email → Email Routing → Email Workers → Add route
+# and route "flights@yourdomain.com" (or a catch-all) to this Worker.
+# Forward your booking-confirmation emails to that address from any provider
+# (Gmail, Outlook, iCloud, Fastmail — anywhere) via a simple filter rule.
+# No secrets or credentials to store; the sender's forward does the work.
+
+[vars]
+# Set via `wrangler secret put` — do NOT commit real keys.
+# RAPIDAPI_KEY = "..."
+# OPENSKY_USERNAME = "..."
+# OPENSKY_PASSWORD = "..."
+# VAPID_PUBLIC_KEY = "..."
+# VAPID_PRIVATE_KEY = "..."
+# VAPID_SUBJECT = "mailto:you@example.com"
