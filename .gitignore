@@ -1,6 +1,8 @@
 .DS_Store
 ._*
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/linkedin-agent/
 .claudeignore
 CLAUDE.md
 __pycache__/
