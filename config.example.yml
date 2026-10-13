@@ -32,3 +32,8 @@ backup_containers:
   radarr:
     excludes: [config/MediaCover]
   prowlarr:
+
+# Color skin for scripts with colored terminal output (currently test-trackers.py).
+# Options: tokyo-night (default), tokyo-night-day, dracula, catppuccin-mocha,
+# gruvbox, classic, none. Preview with: python3 tools/test-trackers.py --list-skins
+skin: tokyo-night

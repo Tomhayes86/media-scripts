@@ -3,22 +3,139 @@
 This script tests and filters a list of trackers to find out which ones return
 valid responses and saves the valid ones to a file.
 
-Requirements: Python 3.8+, pip install requests rich
+Requirements: Python 3.8+, pip install requests rich (pyyaml optional, for `skin:` in config.yml)
 
 Updated: 4 January 2026 - Added multiple tracker sources, progress bar, concurrent testing
 """
 
+import argparse
+import os
 import requests
 import socket
 import logging
 import struct
 import random
+from pathlib import Path
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn, MofNCompleteColumn
 from rich.console import Console
+from rich.theme import Theme
 
-console = Console()
+#
+#   SKINS
+#
+#   Pick a skin per device with `skin:` in config.yml, the TEST_TRACKERS_SKIN
+#   environment variable, or `--skin NAME` (highest priority).
+#   Run with `--list-skins` to see what's available.
+#
+
+DEFAULT_SKIN = "tokyo-night"
+
+# Palette roles: text, muted, info, success, error, heading, value, bar, number, track
+PALETTES = {
+    "tokyo-night": {
+        "text": "#c0caf5", "muted": "#565f89", "info": "#7dcfff", "success": "#9ece6a",
+        "error": "#f7768e", "heading": "#bb9af7", "value": "#e0af68", "bar": "#7aa2f7",
+        "number": "#ff9e64", "track": "#292e42",
+    },
+    "tokyo-night-day": {
+        "text": "#3760bf", "muted": "#848cb5", "info": "#007197", "success": "#587539",
+        "error": "#f52a65", "heading": "#9854f1", "value": "#8c6c3e", "bar": "#2e7de9",
+        "number": "#b15c00", "track": "#c4c8da",
+    },
+    "dracula": {
+        "text": "#f8f8f2", "muted": "#6272a4", "info": "#8be9fd", "success": "#50fa7b",
+        "error": "#ff5555", "heading": "#bd93f9", "value": "#f1fa8c", "bar": "#ff79c6",
+        "number": "#ffb86c", "track": "#44475a",
+    },
+    "catppuccin-mocha": {
+        "text": "#cdd6f4", "muted": "#6c7086", "info": "#89dceb", "success": "#a6e3a1",
+        "error": "#f38ba8", "heading": "#cba6f7", "value": "#f9e2af", "bar": "#89b4fa",
+        "number": "#fab387", "track": "#313244",
+    },
+    "gruvbox": {
+        "text": "#ebdbb2", "muted": "#928374", "info": "#83a598", "success": "#b8bb26",
+        "error": "#fb4934", "heading": "#d3869b", "value": "#fabd2f", "bar": "#8ec07c",
+        "number": "#fe8019", "track": "#3c3836",
+    },
+}
+
+
+def build_theme(p):
+    """Builds a rich Theme from a palette dict."""
+    return Theme({
+        "info": f"bold {p['info']}",
+        "success": f"bold {p['success']}",
+        "error": f"bold {p['error']}",
+        "muted": p["muted"],
+        "heading": f"bold {p['heading']}",
+        "value": p["value"],
+        "valid": p["success"],
+        "dist.bar": p["bar"],
+        "progress.spinner": p["heading"],
+        "progress.description": p["text"],
+        "progress.remaining": p["info"],
+        "progress.download": p["info"],
+        "bar.back": p["track"],
+        "bar.complete": p["bar"],
+        "bar.finished": p["success"],
+        "bar.pulse": p["heading"],
+        "repr.number": f"not bold {p['number']}",
+        "repr.brace": "not bold",
+        "repr.str": p["success"],
+        "repr.url": f"underline {p['info']}",
+        "repr.path": p["heading"],
+        "repr.filename": p["heading"],
+    })
+
+
+SKINS = {name: build_theme(p) for name, p in PALETTES.items()}
+
+# The original look, using rich's standard terminal colors
+SKINS["classic"] = Theme({
+    "info": "bold cyan",
+    "success": "bold green",
+    "error": "bold red",
+    "muted": "dim",
+    "heading": "bold",
+    "value": "none",
+    "valid": "green",
+    "dist.bar": "none",
+})
+
+# Plain output with no colors
+SKINS["none"] = None
+
+
+def configured_skin():
+    """Returns the skin name from TEST_TRACKERS_SKIN or `skin:` in config.yml."""
+    if os.environ.get("TEST_TRACKERS_SKIN"):
+        return os.environ["TEST_TRACKERS_SKIN"]
+    config_path = Path(__file__).resolve().parent.parent / "config.yml"
+    try:
+        import yaml
+    except ImportError:
+        return DEFAULT_SKIN
+    try:
+        config = yaml.safe_load(config_path.read_text()) or {}
+        return config.get("skin") or DEFAULT_SKIN
+    except (OSError, AttributeError, yaml.YAMLError):
+        return DEFAULT_SKIN
+
+
+def make_console(skin):
+    """Creates the console for a skin, falling back to the default if unknown."""
+    if skin not in SKINS:
+        Console(stderr=True).print(f"Unknown skin '{skin}', using '{DEFAULT_SKIN}'. "
+                                   f"Available: {', '.join(SKINS)}", highlight=False)
+        skin = DEFAULT_SKIN
+    if SKINS[skin] is None:
+        return Console(no_color=True, highlight=False, theme=SKINS["classic"])
+    return Console(theme=SKINS[skin])
+
+
+console = make_console(configured_skin())
 
 #
 #   CONFIGURATION
@@ -279,7 +396,7 @@ def fetch_all_trackers(urls):
     """
     all_trackers = set()
     
-    console.print("[dim]Loading tracker lists...[/dim]")
+    console.print("[muted]Loading tracker lists...[/muted]")
     for url in urls:
         trackers = fetch_trackers_from_url(url)
         all_trackers.update(trackers)
@@ -325,16 +442,16 @@ def process_trackers_concurrent(trackers):
     valid_trackers = []  # List of (tracker, response_time) tuples
     total = len(trackers)
     
-    console.print(f"\n[bold cyan]Testing {total} trackers ({MAX_WORKERS} workers)...[/bold cyan]\n")
+    console.print(f"\n[info]Testing {total} trackers ({MAX_WORKERS} workers)...[/info]\n")
     
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         MofNCompleteColumn(),
-        TextColumn("•"),
+        TextColumn("[muted]•[/muted]"),
         TimeRemainingColumn(),
-        TextColumn("[green]Valid: {task.fields[valid]}[/green]"),
+        TextColumn("[valid]Valid: {task.fields[valid]}[/valid]"),
         console=console,
     ) as progress:
         task = progress.add_task("Testing", total=total, valid=0)
@@ -365,25 +482,45 @@ def show_ping_summary(trackers_with_times):
     times = [t[1] for t in trackers_with_times]
     times.sort()
     
-    console.print("\n[bold]Response Time Summary:[/bold]")
-    console.print(f"  Fastest: {times[0]:.0f}ms")
-    console.print(f"  Slowest: {times[-1]:.0f}ms")
-    console.print(f"  Median:  {times[len(times)//2]:.0f}ms")
-    console.print(f"  Average: {sum(times)/len(times):.0f}ms")
+    console.print("\n[heading]Response Time Summary:[/heading]")
+    console.print(f"  Fastest: [value]{times[0]:.0f}ms[/value]")
+    console.print(f"  Slowest: [value]{times[-1]:.0f}ms[/value]")
+    console.print(f"  Median:  [value]{times[len(times)//2]:.0f}ms[/value]")
+    console.print(f"  Average: [value]{sum(times)/len(times):.0f}ms[/value]")
     
     # Show distribution
     brackets = [(0, 100), (100, 250), (250, 500), (500, 1000), (1000, 2000), (2000, float('inf'))]
-    console.print("\n[bold]Distribution:[/bold]")
+    console.print("\n[heading]Distribution:[/heading]")
     for low, high in brackets:
         count = len([t for t in times if low <= t < high])
         if count > 0:
             label = f"  {low}-{high}ms:" if high != float('inf') else f"  {low}ms+:"
             bar = "█" * min(count, 50)
-            console.print(f"{label:12} {bar} ({count})")
+            console.print(f"{label:12} [dist.bar]{bar}[/dist.bar] [muted]({count})[/muted]")
 
 
 def main():
     """Main entry point for the tracker testing script."""
+    global console
+
+    parser = argparse.ArgumentParser(description="Test public BitTorrent trackers and save the valid ones.")
+    parser.add_argument("--skin", choices=list(SKINS), help="color skin for this run (overrides config.yml)")
+    parser.add_argument("--list-skins", action="store_true", help="show available skins and exit")
+    args = parser.parse_args()
+
+    if args.list_skins:
+        current = configured_skin()
+        for name in SKINS:
+            preview = make_console(name)
+            marker = "*" if name == current else " "
+            preview.print(f"{marker} {name:18} [info]info[/info] [success]success[/success] "
+                          f"[error]error[/error] [heading]heading[/heading] [value]123ms[/value] "
+                          f"[dist.bar]█████[/dist.bar] [muted]muted[/muted]", highlight=False)
+        return
+
+    if args.skin:
+        console = make_console(args.skin)
+
     # Clear the log file and configure logging
     with open(LOG_FILE, 'w'):
         pass
@@ -398,7 +535,7 @@ def main():
     all_trackers = fetch_all_trackers(TRACKER_LISTS)
     
     if not all_trackers:
-        console.print("[bold red]Error: No trackers found from any source.[/bold red]")
+        console.print("[error]Error: No trackers found from any source.[/error]")
         return
     
     # Test all trackers concurrently
@@ -413,7 +550,7 @@ def main():
         valid_trackers = [(t, r) for t, r in valid_trackers if r <= MAX_RESPONSE_TIME_MS]
         filtered_count = original_count - len(valid_trackers)
         if filtered_count > 0:
-            console.print(f"\n[dim]Filtered out {filtered_count} trackers slower than {MAX_RESPONSE_TIME_MS}ms[/dim]")
+            console.print(f"\n[muted]Filtered out {filtered_count} trackers slower than {MAX_RESPONSE_TIME_MS}ms[/muted]")
     
     # Sort by response time (fastest first)
     valid_trackers.sort(key=lambda x: x[1])
@@ -422,9 +559,9 @@ def main():
         # Write just the URLs to the output file
         with open(OUTPUT_FILE, "w") as file:
             file.write('\n\n'.join([t[0] for t in valid_trackers]))
-        console.print(f"\n[bold green]Done! {len(valid_trackers)} trackers saved to {OUTPUT_FILE} (sorted by speed)[/bold green]")
+        console.print(f"\n[success]Done! {len(valid_trackers)} trackers saved to {OUTPUT_FILE} (sorted by speed)[/success]")
     else:
-        console.print("\n[bold red]No valid trackers found.[/bold red]")
+        console.print("\n[error]No valid trackers found.[/error]")
 
 
 if __name__ == "__main__":
