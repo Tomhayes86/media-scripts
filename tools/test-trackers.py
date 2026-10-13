@@ -17,8 +17,35 @@ from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn, MofNCompleteColumn
 from rich.console import Console
+from rich.theme import Theme
 
-console = Console()
+# Tokyo Night palette
+TOKYO_NIGHT = Theme({
+    "info": "bold #7dcfff",
+    "success": "bold #9ece6a",
+    "error": "bold #f7768e",
+    "muted": "#565f89",
+    "heading": "bold #bb9af7",
+    "value": "#e0af68",
+    "valid": "#9ece6a",
+    "dist.bar": "#7aa2f7",
+    "progress.spinner": "#bb9af7",
+    "progress.description": "#c0caf5",
+    "progress.remaining": "#7dcfff",
+    "progress.download": "#7dcfff",
+    "bar.back": "#292e42",
+    "bar.complete": "#7aa2f7",
+    "bar.finished": "#9ece6a",
+    "bar.pulse": "#bb9af7",
+    "repr.number": "not bold #ff9e64",
+    "repr.brace": "not bold",
+    "repr.str": "#9ece6a",
+    "repr.url": "underline #7dcfff",
+    "repr.path": "#bb9af7",
+    "repr.filename": "#bb9af7",
+})
+
+console = Console(theme=TOKYO_NIGHT)
 
 #
 #   CONFIGURATION
@@ -279,7 +306,7 @@ def fetch_all_trackers(urls):
     """
     all_trackers = set()
     
-    console.print("[dim]Loading tracker lists...[/dim]")
+    console.print("[muted]Loading tracker lists...[/muted]")
     for url in urls:
         trackers = fetch_trackers_from_url(url)
         all_trackers.update(trackers)
@@ -325,16 +352,16 @@ def process_trackers_concurrent(trackers):
     valid_trackers = []  # List of (tracker, response_time) tuples
     total = len(trackers)
     
-    console.print(f"\n[bold cyan]Testing {total} trackers ({MAX_WORKERS} workers)...[/bold cyan]\n")
+    console.print(f"\n[info]Testing {total} trackers ({MAX_WORKERS} workers)...[/info]\n")
     
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         MofNCompleteColumn(),
-        TextColumn("•"),
+        TextColumn("[muted]•[/muted]"),
         TimeRemainingColumn(),
-        TextColumn("[green]Valid: {task.fields[valid]}[/green]"),
+        TextColumn("[valid]Valid: {task.fields[valid]}[/valid]"),
         console=console,
     ) as progress:
         task = progress.add_task("Testing", total=total, valid=0)
@@ -365,21 +392,21 @@ def show_ping_summary(trackers_with_times):
     times = [t[1] for t in trackers_with_times]
     times.sort()
     
-    console.print("\n[bold]Response Time Summary:[/bold]")
-    console.print(f"  Fastest: {times[0]:.0f}ms")
-    console.print(f"  Slowest: {times[-1]:.0f}ms")
-    console.print(f"  Median:  {times[len(times)//2]:.0f}ms")
-    console.print(f"  Average: {sum(times)/len(times):.0f}ms")
+    console.print("\n[heading]Response Time Summary:[/heading]")
+    console.print(f"  Fastest: [value]{times[0]:.0f}ms[/value]")
+    console.print(f"  Slowest: [value]{times[-1]:.0f}ms[/value]")
+    console.print(f"  Median:  [value]{times[len(times)//2]:.0f}ms[/value]")
+    console.print(f"  Average: [value]{sum(times)/len(times):.0f}ms[/value]")
     
     # Show distribution
     brackets = [(0, 100), (100, 250), (250, 500), (500, 1000), (1000, 2000), (2000, float('inf'))]
-    console.print("\n[bold]Distribution:[/bold]")
+    console.print("\n[heading]Distribution:[/heading]")
     for low, high in brackets:
         count = len([t for t in times if low <= t < high])
         if count > 0:
             label = f"  {low}-{high}ms:" if high != float('inf') else f"  {low}ms+:"
             bar = "█" * min(count, 50)
-            console.print(f"{label:12} {bar} ({count})")
+            console.print(f"{label:12} [dist.bar]{bar}[/dist.bar] [muted]({count})[/muted]")
 
 
 def main():
@@ -398,7 +425,7 @@ def main():
     all_trackers = fetch_all_trackers(TRACKER_LISTS)
     
     if not all_trackers:
-        console.print("[bold red]Error: No trackers found from any source.[/bold red]")
+        console.print("[error]Error: No trackers found from any source.[/error]")
         return
     
     # Test all trackers concurrently
@@ -413,7 +440,7 @@ def main():
         valid_trackers = [(t, r) for t, r in valid_trackers if r <= MAX_RESPONSE_TIME_MS]
         filtered_count = original_count - len(valid_trackers)
         if filtered_count > 0:
-            console.print(f"\n[dim]Filtered out {filtered_count} trackers slower than {MAX_RESPONSE_TIME_MS}ms[/dim]")
+            console.print(f"\n[muted]Filtered out {filtered_count} trackers slower than {MAX_RESPONSE_TIME_MS}ms[/muted]")
     
     # Sort by response time (fastest first)
     valid_trackers.sort(key=lambda x: x[1])
@@ -422,9 +449,9 @@ def main():
         # Write just the URLs to the output file
         with open(OUTPUT_FILE, "w") as file:
             file.write('\n\n'.join([t[0] for t in valid_trackers]))
-        console.print(f"\n[bold green]Done! {len(valid_trackers)} trackers saved to {OUTPUT_FILE} (sorted by speed)[/bold green]")
+        console.print(f"\n[success]Done! {len(valid_trackers)} trackers saved to {OUTPUT_FILE} (sorted by speed)[/success]")
     else:
-        console.print("\n[bold red]No valid trackers found.[/bold red]")
+        console.print("\n[error]No valid trackers found.[/error]")
 
 
 if __name__ == "__main__":
