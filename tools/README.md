@@ -109,9 +109,24 @@ Optionally configure in `test-trackers.py`:
 - `OUTPUT_FILE` - Output file for valid trackers
 - `LOG_FILE` - Log file for test results
 
+**Skins:**
+
+Output colors come from a skin, chosen per device. Available skins: `tokyo-night` (default), `tokyo-night-day`, `dracula`, `catppuccin-mocha`, `gruvbox`, `classic` (the original terminal colors), and `none` (no color).
+
+The skin is picked from the first of these that is set:
+1. `--skin NAME` on the command line
+2. The `TEST_TRACKERS_SKIN` environment variable
+3. `skin:` in `config.yml` (needs `pyyaml`)
+
 **Usage:**
 ```bash
 python3 test-trackers.py
+
+# Preview every skin (* marks the current one)
+python3 test-trackers.py --list-skins
+
+# Use a different skin for one run
+python3 test-trackers.py --skin dracula
 ```
 
 Output files:

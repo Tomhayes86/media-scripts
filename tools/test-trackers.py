@@ -3,49 +3,139 @@
 This script tests and filters a list of trackers to find out which ones return
 valid responses and saves the valid ones to a file.
 
-Requirements: Python 3.8+, pip install requests rich
+Requirements: Python 3.8+, pip install requests rich (pyyaml optional, for `skin:` in config.yml)
 
 Updated: 4 January 2026 - Added multiple tracker sources, progress bar, concurrent testing
 """
 
+import argparse
+import os
 import requests
 import socket
 import logging
 import struct
 import random
+from pathlib import Path
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn, MofNCompleteColumn
 from rich.console import Console
 from rich.theme import Theme
 
-# Tokyo Night palette
-TOKYO_NIGHT = Theme({
-    "info": "bold #7dcfff",
-    "success": "bold #9ece6a",
-    "error": "bold #f7768e",
-    "muted": "#565f89",
-    "heading": "bold #bb9af7",
-    "value": "#e0af68",
-    "valid": "#9ece6a",
-    "dist.bar": "#7aa2f7",
-    "progress.spinner": "#bb9af7",
-    "progress.description": "#c0caf5",
-    "progress.remaining": "#7dcfff",
-    "progress.download": "#7dcfff",
-    "bar.back": "#292e42",
-    "bar.complete": "#7aa2f7",
-    "bar.finished": "#9ece6a",
-    "bar.pulse": "#bb9af7",
-    "repr.number": "not bold #ff9e64",
-    "repr.brace": "not bold",
-    "repr.str": "#9ece6a",
-    "repr.url": "underline #7dcfff",
-    "repr.path": "#bb9af7",
-    "repr.filename": "#bb9af7",
+#
+#   SKINS
+#
+#   Pick a skin per device with `skin:` in config.yml, the TEST_TRACKERS_SKIN
+#   environment variable, or `--skin NAME` (highest priority).
+#   Run with `--list-skins` to see what's available.
+#
+
+DEFAULT_SKIN = "tokyo-night"
+
+# Palette roles: text, muted, info, success, error, heading, value, bar, number, track
+PALETTES = {
+    "tokyo-night": {
+        "text": "#c0caf5", "muted": "#565f89", "info": "#7dcfff", "success": "#9ece6a",
+        "error": "#f7768e", "heading": "#bb9af7", "value": "#e0af68", "bar": "#7aa2f7",
+        "number": "#ff9e64", "track": "#292e42",
+    },
+    "tokyo-night-day": {
+        "text": "#3760bf", "muted": "#848cb5", "info": "#007197", "success": "#587539",
+        "error": "#f52a65", "heading": "#9854f1", "value": "#8c6c3e", "bar": "#2e7de9",
+        "number": "#b15c00", "track": "#c4c8da",
+    },
+    "dracula": {
+        "text": "#f8f8f2", "muted": "#6272a4", "info": "#8be9fd", "success": "#50fa7b",
+        "error": "#ff5555", "heading": "#bd93f9", "value": "#f1fa8c", "bar": "#ff79c6",
+        "number": "#ffb86c", "track": "#44475a",
+    },
+    "catppuccin-mocha": {
+        "text": "#cdd6f4", "muted": "#6c7086", "info": "#89dceb", "success": "#a6e3a1",
+        "error": "#f38ba8", "heading": "#cba6f7", "value": "#f9e2af", "bar": "#89b4fa",
+        "number": "#fab387", "track": "#313244",
+    },
+    "gruvbox": {
+        "text": "#ebdbb2", "muted": "#928374", "info": "#83a598", "success": "#b8bb26",
+        "error": "#fb4934", "heading": "#d3869b", "value": "#fabd2f", "bar": "#8ec07c",
+        "number": "#fe8019", "track": "#3c3836",
+    },
+}
+
+
+def build_theme(p):
+    """Builds a rich Theme from a palette dict."""
+    return Theme({
+        "info": f"bold {p['info']}",
+        "success": f"bold {p['success']}",
+        "error": f"bold {p['error']}",
+        "muted": p["muted"],
+        "heading": f"bold {p['heading']}",
+        "value": p["value"],
+        "valid": p["success"],
+        "dist.bar": p["bar"],
+        "progress.spinner": p["heading"],
+        "progress.description": p["text"],
+        "progress.remaining": p["info"],
+        "progress.download": p["info"],
+        "bar.back": p["track"],
+        "bar.complete": p["bar"],
+        "bar.finished": p["success"],
+        "bar.pulse": p["heading"],
+        "repr.number": f"not bold {p['number']}",
+        "repr.brace": "not bold",
+        "repr.str": p["success"],
+        "repr.url": f"underline {p['info']}",
+        "repr.path": p["heading"],
+        "repr.filename": p["heading"],
+    })
+
+
+SKINS = {name: build_theme(p) for name, p in PALETTES.items()}
+
+# The original look, using rich's standard terminal colors
+SKINS["classic"] = Theme({
+    "info": "bold cyan",
+    "success": "bold green",
+    "error": "bold red",
+    "muted": "dim",
+    "heading": "bold",
+    "value": "none",
+    "valid": "green",
+    "dist.bar": "none",
 })
 
-console = Console(theme=TOKYO_NIGHT)
+# Plain output with no colors
+SKINS["none"] = None
+
+
+def configured_skin():
+    """Returns the skin name from TEST_TRACKERS_SKIN or `skin:` in config.yml."""
+    if os.environ.get("TEST_TRACKERS_SKIN"):
+        return os.environ["TEST_TRACKERS_SKIN"]
+    config_path = Path(__file__).resolve().parent.parent / "config.yml"
+    try:
+        import yaml
+    except ImportError:
+        return DEFAULT_SKIN
+    try:
+        config = yaml.safe_load(config_path.read_text()) or {}
+        return config.get("skin") or DEFAULT_SKIN
+    except (OSError, AttributeError, yaml.YAMLError):
+        return DEFAULT_SKIN
+
+
+def make_console(skin):
+    """Creates the console for a skin, falling back to the default if unknown."""
+    if skin not in SKINS:
+        Console(stderr=True).print(f"Unknown skin '{skin}', using '{DEFAULT_SKIN}'. "
+                                   f"Available: {', '.join(SKINS)}", highlight=False)
+        skin = DEFAULT_SKIN
+    if SKINS[skin] is None:
+        return Console(no_color=True, highlight=False, theme=SKINS["classic"])
+    return Console(theme=SKINS[skin])
+
+
+console = make_console(configured_skin())
 
 #
 #   CONFIGURATION
@@ -411,6 +501,26 @@ def show_ping_summary(trackers_with_times):
 
 def main():
     """Main entry point for the tracker testing script."""
+    global console
+
+    parser = argparse.ArgumentParser(description="Test public BitTorrent trackers and save the valid ones.")
+    parser.add_argument("--skin", choices=list(SKINS), help="color skin for this run (overrides config.yml)")
+    parser.add_argument("--list-skins", action="store_true", help="show available skins and exit")
+    args = parser.parse_args()
+
+    if args.list_skins:
+        current = configured_skin()
+        for name in SKINS:
+            preview = make_console(name)
+            marker = "*" if name == current else " "
+            preview.print(f"{marker} {name:18} [info]info[/info] [success]success[/success] "
+                          f"[error]error[/error] [heading]heading[/heading] [value]123ms[/value] "
+                          f"[dist.bar]█████[/dist.bar] [muted]muted[/muted]", highlight=False)
+        return
+
+    if args.skin:
+        console = make_console(args.skin)
+
     # Clear the log file and configure logging
     with open(LOG_FILE, 'w'):
         pass
