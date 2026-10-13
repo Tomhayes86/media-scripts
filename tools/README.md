@@ -118,6 +118,8 @@ The skin is picked from the first of these that is set:
 2. The `TEST_TRACKERS_SKIN` environment variable
 3. `skin:` in `config.yml` (needs `pyyaml`)
 
+In Claude Code, `/skin NAME` sets `skin:` in this device's `config.yml` for you, and `/skin` alone previews the skins.
+
 **Usage:**
 ```bash
 python3 test-trackers.py
