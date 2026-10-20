@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Flighty-lite</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Flights</h1>
+    <div class="header-actions">
+      <button id="push-btn" hidden>Enable alerts</button>
+    </div>
+  </header>
+
+  <form id="add-form">
+    <input id="flight-number" placeholder="Flight (e.g. BA286)" autocapitalize="characters" required />
+    <input id="flight-date" type="date" required />
+    <button type="submit">Add</button>
+    <button type="button" id="import-btn" title="Import from email">✉︎</button>
+    <button type="button" id="history-btn" title="Import flight history (CSV)">📚</button>
+  </form>
+
+  <ul id="flight-list"></ul>
+
+  <dialog id="history">
+    <button class="close" data-close>×</button>
+    <div style="padding: 1rem 1.25rem 1.5rem;">
+      <h2 style="margin:0 0 .5rem;">Import flight history</h2>
+      <p style="color:var(--muted); margin: 0 0 .75rem;">
+        Upload a CSV (Flighty export, App in the Air export, or any sheet with
+        <code>flight_number</code> + <code>date</code> columns), or paste
+        <code>BA286 2024-03-15</code>-style lines.
+      </p>
+      <input id="history-file" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain"
+             style="margin-bottom:.5rem; color:var(--muted);" />
+      <textarea id="history-text" rows="10"
+                style="width:100%; padding:.6rem; border-radius:.5rem; background:var(--panel-2); color:var(--text); border:0; font-family: ui-monospace, SF Mono, Menlo, monospace; font-size: .85rem;"
+                placeholder="flight_number,flight_date,origin,destination&#10;BA286,2024-03-15,LHR,SFO&#10;UA924,2024-04-22,SFO,LHR"></textarea>
+      <div class="btn-row" style="margin-top: .75rem;">
+        <button id="history-cancel" type="button">Cancel</button>
+        <button id="history-submit" type="button" style="background: var(--accent); color: white;">Import all</button>
+      </div>
+      <div id="history-result" style="margin-top:.75rem; font-size:.9rem; max-height: 200px; overflow-y: auto;"></div>
+    </div>
+  </dialog>
+
+  <dialog id="import">
+    <button class="close" data-close>×</button>
+    <div style="padding: 1rem 1.25rem 1.5rem;">
+      <h2 style="margin:0 0 .5rem;">Import from email</h2>
+      <p style="color:var(--muted); margin: 0 0 .75rem;">
+        Paste a booking-confirmation email (headers + body, or just the plain text).
+        Works with any airline or booking site.
+      </p>
+      <textarea id="import-text" rows="10"
+                style="width:100%; padding:.6rem; border-radius:.5rem; background:var(--panel-2); color:var(--text); border:0; font-family: inherit;"
+                placeholder="Paste the email here…"></textarea>
+      <div class="btn-row" style="margin-top: .75rem;">
+        <button id="import-cancel" type="button">Cancel</button>
+        <button id="import-submit" type="button" style="background: var(--accent); color: white;">Import</button>
+      </div>
+      <div id="import-result" style="margin-top:.75rem; font-size:.9rem;"></div>
+    </div>
+  </dialog>
+
+  <dialog id="detail">
+    <button class="close" data-close>×</button>
+    <div id="detail-body"></div>
+  </dialog>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
